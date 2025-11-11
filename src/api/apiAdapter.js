@@ -4,12 +4,12 @@
 import { getToken } from "../lib/api.js";
 
 const resolvedBase = (() => {
-  const envBase = import.meta.env?.VITE_API_BASE ?? "https://hastane-backend.onrender.com";
+  const envBase = import.meta.env?.VITE_API_BASE_URL_URL ?? "https://hastane-backend.onrender.com";
   if (envBase) return envBase;
   if (typeof window !== "undefined") {
     if (window.__API_BASE__) return window.__API_BASE__;
     if (["5173", "5174"].includes(window.location?.port)) {
-      return "https://hastane-backend.onrender.com";
+      return "https://hastane15.onrender.com";
     }
   }
   return "";

@@ -1,5 +1,5 @@
 // src/api/client.js
-const BASE_URL = (import.meta.env.VITE_API_URL || 'https://hastane-backend.onrender.com').replace(/\/$/, '');
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://hastane-backend.onrender.com').replace(/\/$/, '');
 const TOKEN_KEY = 'token';
 
 export function getToken() {

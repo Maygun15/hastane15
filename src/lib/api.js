@@ -1,7 +1,7 @@
 // src/lib/api.js — Vite uyumlu, sağlamlaştırılmış
 
 /* ========= BASE ========= */
-const API_BASE = (import.meta.env.VITE_API_BASE || 'https://hastane-backend.onrender.com')
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://hastane-backend.onrender.com')
   .replace(/\/+$/, ''); // sondaki /'ları sil
 
 // Route prefix — backend kökte sunduğu için boş bırakıyoruz
