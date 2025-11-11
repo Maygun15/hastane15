@@ -32,7 +32,7 @@ if (!SKIP_DB) {
 }
 
 /* ============== MIDDLEWARE ============== */
-const ALLOWED_ORIGINS = new Set(['http://localhost:5173','http://localhost:5174', FRONTEND_ORIGIN]);
+const ALLOWED_ORIGINS = new Set(['http://localhost:5173','http://localhost:5174', 'https://maygun15.github.io', 'https://maygun15.github.io/hastane15', FRONTEND_ORIGIN]);
 app.set('trust proxy', 1);
 app.use(cors({
   origin(origin, cb) {

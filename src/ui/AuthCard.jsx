@@ -32,7 +32,7 @@ export default function AuthCard() {
   // (opsiyonel) servisi backend'den doldurmak istersen:
   useEffect(() => {
     // örnek: /api/services varsa buradan çekebilirsin
-    // fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3000'}/services`)
+    // fetch(`${import.meta.env.VITE_API_BASE || 'https://hastane-backend.onrender.com'}/services`)
     //   .then(r => r.ok ? r.json() : Promise.reject())
     //   .then(list => setServices(Array.isArray(list) ? list : DEFAULT_SERVICES))
     //   .catch(() => setServices(DEFAULT_SERVICES));
