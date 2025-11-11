@@ -7,14 +7,29 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import {
-  apiLogin,
-  apiLogout,
-  apiMe,
-  apiRegister,
-  setToken,
-  getToken,
-} from "../lib/api.js";
+import api from "../lib/api.js";
+
+const TOKEN_KEY = "authToken";
+const getToken = () => {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+const setToken = (token) => {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+};
+const apiLogin = (payload) =>
+  api.post("/api/auth/login", payload).then((res) => res.data);
+const apiRegister = (payload) =>
+  api.post("/api/auth/register", payload).then((res) => res.data);
+const apiMe = () => api.get("/api/auth/me").then((res) => res.data);
+const apiLogout = () =>
+  api.post("/api/auth/logout").catch(() => {}).then(() => ({ ok: true }));
 
 /*
   Auth modelimiz:
@@ -84,21 +99,28 @@ export function AuthProvider({ children }) {
   }, [refresh]);
 
   // Login akışı
-  const login = useCallback(async ({ identifier, password }) => {
-    setStatus("loading");
-    const data = await apiLogin({ identifier, password });
-    // api.js token'ı zaten set ediyor; /me ile kesinleştir
-    const me = await refresh();
-    return me || data;
-  }, [refresh]);
+  const login = useCallback(
+    async ({ identifier, password }) => {
+      setStatus("loading");
+      const data = await apiLogin({ identifier, password });
+      if (data?.token) setToken(data.token);
+      const me = await refresh();
+      return me || data;
+    },
+    [refresh]
+  );
 
   // Kayıt akışı
-  const register = useCallback(async (payload) => {
-    setStatus("loading");
-    const data = await apiRegister(payload);
-    const me = await refresh();
-    return me || data;
-  }, [refresh]);
+  const register = useCallback(
+    async (payload) => {
+      setStatus("loading");
+      const data = await apiRegister(payload);
+      if (data?.token) setToken(data.token);
+      const me = await refresh();
+      return me || data;
+    },
+    [refresh]
+  );
 
   // Manual token set (opsiyonel): davet kabul vs. sonrası kullanılabilir
   const loginWithToken = useCallback(async (token) => {

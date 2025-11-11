@@ -6,6 +6,7 @@ const express  = require('express');
 const cors     = require('cors');
 const mongoose = require('mongoose');
 const jwt      = require('jsonwebtoken');
+const ensureDevAdmin = require('./utils/ensureDevAdmin');
 
 const app  = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -27,6 +28,9 @@ if (!SKIP_DB) {
   mongoose.connect(MONGODB_URI, { dbName: 'hastane', serverSelectionTimeoutMS: 10000 })
     .then(() => console.log('✅ MongoDB bağlı'))
     .catch((err) => { console.error('❌ MongoDB hatası:', err.message); process.exit(1); });
+  mongoose.connection.once('open', async () => {
+    await ensureDevAdmin();
+  });
 } else {
   console.log('⚠️  SKIP_DB=1 → Mongo bağlantısı atlandı');
 }
