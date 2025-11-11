@@ -1,6 +1,6 @@
 // src/auth/AuthContext.jsx
 import { createContext, useContext, useState } from "react";
-import api from "../lib/api";
+import api, { setToken } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -8,13 +8,14 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const login = async ({ identifier, password, email }) => {
+  const login = async ({ identifier, email, password }) => {
     setLoading(true);
     try {
-      const res = await api.post("/api/auth/login", {
+      const res = await api.post("/login", {
         identifier: identifier || email,
         password,
       });
+      if (res.data?.token) setToken(res.data.token);
       setUser(res.data?.user ?? null);
       return res.data;
     } finally {
@@ -25,11 +26,8 @@ export function AuthProvider({ children }) {
   const register = async ({ name, email, password }) => {
     setLoading(true);
     try {
-      const res = await api.post("/api/auth/register", {
-        name,
-        email,
-        password,
-      });
+      const res = await api.post("/register", { name, email, password });
+      if (res.data?.token) setToken(res.data.token);
       setUser(res.data?.user ?? null);
       return res.data;
     } finally {
@@ -38,7 +36,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await api.post("/api/auth/logout").catch(() => {});
+    await api.post("/logout").catch(() => {});
+    setToken("");
     setUser(null);
   };
 
@@ -51,9 +50,7 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
 
