@@ -4,7 +4,7 @@
 import { getToken } from "../lib/api.js";
 
 const resolvedBase = (() => {
-  const envBase = import.meta.env?.VITE_API_BASE_URL_URL ?? "https://hastane-backend.onrender.com";
+  const envBase = import.meta.env?.VITE_API_BASE_URL ?? "https://hastane15.onrender.com";
   if (envBase) return envBase;
   if (typeof window !== "undefined") {
     if (window.__API_BASE__) return window.__API_BASE__;
