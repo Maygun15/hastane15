@@ -7,7 +7,7 @@ import { AuthProvider } from "./auth/AuthContext.jsx";
 import "./index.css";
 
 const Root = () => (
-  <BrowserRouter>
+  <BrowserRouter basename="/hastane15">
     <AuthProvider>
       <App />
     </AuthProvider>

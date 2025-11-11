@@ -1,198 +1,60 @@
 // src/auth/AuthContext.jsx
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import api from "../lib/api.js";
-
-const TOKEN_KEY = "authToken";
-const getToken = () => {
-  try {
-    return localStorage.getItem(TOKEN_KEY) || "";
-  } catch {
-    return "";
-  }
-};
-const setToken = (token) => {
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {}
-};
-const apiLogin = (payload) =>
-  api.post("/api/auth/login", payload).then((res) => res.data);
-const apiRegister = (payload) =>
-  api.post("/api/auth/register", payload).then((res) => res.data);
-const apiMe = () => api.get("/api/auth/me").then((res) => res.data);
-const apiLogout = () =>
-  api.post("/api/auth/logout").catch(() => {}).then(() => ({ ok: true }));
-
-/*
-  Auth modelimiz:
-  - token: localStorage('authToken') ile kalıcı
-  - user: { _id, name, email, phone, tc, role, serviceIds, isActive, ... }  (backend /me döndürdüğü sürece)
-  - status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated'
-*/
+import { createContext, useContext, useState } from "react";
+import api from "../lib/api";
 
 const AuthContext = createContext(null);
 
-/* ============================
-   Provider
-============================ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [status, setStatus] = useState("idle"); // ilk yüklenme
-  const isAuthenticated = !!user;
+  const [loading, setLoading] = useState(false);
 
-  // /me ile kullanıcıyı yenile
-  const refresh = useCallback(async () => {
-    const t = getToken();
-    if (!t) {
-      setUser(null);
-      setStatus("unauthenticated");
-      return null;
-    }
+  const login = async ({ identifier, password, email }) => {
+    setLoading(true);
     try {
-      setStatus((s) => (s === "idle" ? "loading" : s));
-      const me = await apiMe();
-      setUser(me);
-      setStatus("authenticated");
-      return me;
-    } catch (err) {
-      // token bozuksa api.js zaten temizliyor; yine de state'i sıfırla
-      setUser(null);
-      setStatus("unauthenticated");
-      return null;
+      const res = await api.post("/api/auth/login", {
+        identifier: identifier || email,
+        password,
+      });
+      setUser(res.data?.user ?? null);
+      return res.data;
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
-  // ilk açılışta /me
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const register = async ({ name, email, password }) => {
+    setLoading(true);
+    try {
+      const res = await api.post("/api/auth/register", {
+        name,
+        email,
+        password,
+      });
+      setUser(res.data?.user ?? null);
+      return res.data;
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Sekmeler arası token değişimini dinle
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === "authToken") {
-        // başka sekmede login/logout oldu
-        refresh();
-      }
-    };
-    window.addEventListener("storage", onStorage);
-
-    // api.js 401 durumunda yaydığı event'i de dinle
-    const onForcedLogout = () => {
-      setUser(null);
-      setStatus("unauthenticated");
-    };
-    window.addEventListener("auth:logout", onForcedLogout);
-
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("auth:logout", onForcedLogout);
-    };
-  }, [refresh]);
-
-  // Login akışı
-  const login = useCallback(
-    async ({ identifier, password }) => {
-      setStatus("loading");
-      const data = await apiLogin({ identifier, password });
-      if (data?.token) setToken(data.token);
-      const me = await refresh();
-      return me || data;
-    },
-    [refresh]
-  );
-
-  // Kayıt akışı
-  const register = useCallback(
-    async (payload) => {
-      setStatus("loading");
-      const data = await apiRegister(payload);
-      if (data?.token) setToken(data.token);
-      const me = await refresh();
-      return me || data;
-    },
-    [refresh]
-  );
-
-  // Manual token set (opsiyonel): davet kabul vs. sonrası kullanılabilir
-  const loginWithToken = useCallback(async (token) => {
-    setToken(token || "");
-    return refresh();
-  }, [refresh]);
-
-  // Logout
-  const logout = useCallback(async () => {
-    try { await apiLogout(); } catch {}
-    setToken("");
+  const logout = async () => {
+    await api.post("/api/auth/logout").catch(() => {});
     setUser(null);
-    setStatus("unauthenticated");
-  }, []);
+  };
 
-  // Kullanışlı yardımcılar
-  const hasRole = useCallback(
-    (roles) => {
-      if (!user || !user.role) return false;
-      const arr = Array.isArray(roles) ? roles : [roles];
-      return arr.includes(user.role);
-    },
-    [user]
+  const value = { user, loading, login, register, logout };
+
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
-
-  const value = useMemo(
-    () => ({
-      user,
-      status,            // 'idle' | 'loading' | 'authenticated' | 'unauthenticated'
-      isAuthenticated,   // boolean
-      register,
-      login,
-      loginWithToken,
-      logout,
-      refresh,
-      hasRole,
-      token: getToken(), // gerektiğinde erişim
-    }),
-    [user, status, isAuthenticated, register, login, loginWithToken, logout, refresh, hasRole]
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/* ============================
-   Hook
-============================ */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error("useAuth, AuthProvider içinde kullanılmalı.");
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return ctx;
 }
 
-/* ============================
-   Basit Guard Bileşenleri
-============================ */
-export function RequireAuth({ fallback = null, children }) {
-  const { status, isAuthenticated } = useAuth();
-  if (status === "idle" || status === "loading") return null; // istersen loader koy
-  if (!isAuthenticated) return fallback;
-  return children;
-}
-
-export function RequireRole({ roles, fallback = null, children }) {
-  const { status, isAuthenticated, hasRole } = useAuth();
-  if (status === "idle" || status === "loading") return null;
-  if (!isAuthenticated) return fallback;
-  if (!hasRole(roles)) return fallback;
-  return children;
-}
-
-// (opsiyonel) default export isterse:
 export default AuthProvider;
