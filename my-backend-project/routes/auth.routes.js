@@ -1,0 +1,155 @@
+// routes/auth.routes.js
+const express = require('express');
+const bcrypt  = require('bcryptjs');
+const jwt     = require('jsonwebtoken');
+const router  = express.Router();
+
+const path = require('path');
+const User = require(path.join(__dirname, '..', 'models', 'User.js'));
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+/* ============ Helpers ============ */
+const normalize = (s) => (s ?? '').toString().trim();
+const lc = (s) => normalize(s).toLowerCase();
+const makeToken = (uid) => jwt.sign({ uid }, JWT_SECRET, { expiresIn: '7d' });
+
+// Frontend bazen "identifier", bazen "kimlik", bazen "tc" gönderiyor olabilir
+function pickIdentifier(body) {
+  return (
+    normalize(body.identifier) ||
+    normalize(body.kimlik) ||
+    normalize(body.tc) ||
+    normalize(body.email) ||
+    normalize(body.phone)
+  );
+}
+
+/* ============= REGISTER (opsiyonel) ============= */
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, tc, phone, password, role } = req.body || {};
+    if (!name || !password || !(email || tc || phone)) {
+      return res.status(400).json({ message: 'Zorunlu alanlar eksik' });
+    }
+
+    const emailLC = email ? lc(email) : undefined;
+
+    const exists = await User.findOne({
+      $or: [
+        ...(emailLC ? [{ email: emailLC }] : []),
+        ...(tc      ? [{ tc }] : []),
+        ...(phone   ? [{ phone }] : []),
+      ],
+    }).lean();
+
+    if (exists) return res.status(409).json({ message: 'Bu kullanıcı zaten kayıtlı' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name,
+      email: emailLC,
+      tc: tc || undefined,
+      phone: phone || undefined,
+      passwordHash: hash,              // 🔧 doğru alan
+      role: role || 'user',
+      active: true,
+      serviceIds: [],
+    });
+
+    const token = makeToken(String(user._id));
+    return res.json({
+      token,
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        tc: user.tc,
+        phone: user.phone,
+        role: user.role,
+        active: user.active,
+        serviceIds: user.serviceIds || [],
+      },
+    });
+  } catch (err) {
+    console.error('REGISTER ERR:', err);
+    res.status(500).json({ message: 'Kayıt sırasında hata' });
+  }
+});
+
+/* ============= LOGIN ============= */
+router.post('/login', async (req, res) => {
+  try {
+    const identifier = pickIdentifier(req.body);
+    const password   = normalize(req.body.password);
+
+    if (!identifier || !password) {
+      return res.status(400).json({ message: 'Kimlik ve şifre zorunlu' });
+    }
+
+    // identifier email ise email’e, değilse tc/phone’a bak
+    const isEmail = identifier.includes('@');
+    const query = isEmail
+      ? { email: lc(identifier) }
+      : { $or: [{ tc: identifier }, { phone: identifier }] };
+
+    // Şema "passwordHash"i select:false olarak saklıyor olabilir; iki alanı da talep et
+    const user = await User.findOne(query)
+      .select('+passwordHash password active role name email tc phone serviceIds')
+      .lean();
+
+    if (!user) return res.status(401).json({ message: 'Kullanıcı bulunamadı' });
+
+    const hashed = user.passwordHash || user.password || '';
+    const ok = await bcrypt.compare(password, hashed);
+    if (!ok) return res.status(401).json({ message: 'Şifre hatalı' });
+
+    if (user.active === false) return res.status(403).json({ message: 'Hesap pasif' });
+
+    const token = makeToken(String(user._id));
+    return res.json({
+      token,
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        tc: user.tc,
+        phone: user.phone,
+        role: user.role,
+        active: user.active,
+        serviceIds: user.serviceIds || [],
+      },
+    });
+  } catch (err) {
+    console.error('LOGIN ERR:', err);
+    res.status(500).json({ message: 'Giriş sırasında hata' });
+  }
+});
+
+/* ============= ME (token ile) ============= */
+router.get('/me', async (req, res) => {
+  try {
+    const h = req.headers.authorization || '';
+    const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+    if (!token) return res.status(401).json({ message: 'Yetkisiz' });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.uid).lean();
+    if (!user) return res.status(401).json({ message: 'Yetkisiz' });
+
+    res.json({
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+      tc: user.tc,
+      phone: user.phone,
+      role: user.role,
+      active: user.active,
+      serviceIds: user.serviceIds || [],
+    });
+  } catch {
+    res.status(401).json({ message: 'Yetkisiz' });
+  }
+});
+
+module.exports = router;
