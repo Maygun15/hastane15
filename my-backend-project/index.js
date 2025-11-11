@@ -32,12 +32,20 @@ if (!SKIP_DB) {
 }
 
 /* ============== MIDDLEWARE ============== */
-const ALLOWED_ORIGINS = new Set(['http://localhost:5173','http://localhost:5174', 'https://maygun15.github.io', 'https://maygun15.github.io/hastane15', FRONTEND_ORIGIN]);
+const ALLOWED_ORIGINS = new Set(['http://localhost:5173','http://localhost:5174', 'http://localhost:5174/hastane15', 'https://maygun15.github.io', 'https://maygun15.github.io/hastane15', FRONTEND_ORIGIN]);
+const isAllowedOrigin = (origin = '') => {
+  for (const allowed of ALLOWED_ORIGINS) {
+    if (!allowed) continue;
+    if (origin === allowed) return true;
+    if (origin.startsWith(allowed + '/')) return true;
+  }
+  return false;
+};
 app.set('trust proxy', 1);
 app.use(cors({
   origin(origin, cb) {
     if (!origin) return cb(null, true); // Postman/cURL
-    const ok = [...ALLOWED_ORIGINS].some(o => o === origin);
+    const ok = isAllowedOrigin(origin);
     return ok ? cb(null, true) : cb(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
