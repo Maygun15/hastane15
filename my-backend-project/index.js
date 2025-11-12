@@ -1,8 +1,8 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const cookieParser = require("cookie-parser");
+import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
+import cookieParser from "cookie-parser";
 
 const authRoutes = require("./routes/auth.routes.js");
 const ensureDevAdmin = require("./utils/ensureDevAdmin");
@@ -28,7 +28,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("/api/*", cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
