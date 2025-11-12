@@ -80,20 +80,38 @@ router.post('/register', async (req, res) => {
 /* ============= LOGIN ============= */
 router.post('/login', async (req, res) => {
   try {
-    const identifier = pickIdentifier(req.body);
-    const password   = normalize(req.body.password);
+    const {
+      identifier,
+      kimlik,
+      tc,
+      identityNumber,
+      email,
+      phone,
+      password,
+      parola,
+      sifre,
+    } = req.body || {};
 
-    if (!identifier || !password) {
+    const rawIdentity = (tc || kimlik || identityNumber || identifier || email || phone || '').toString().trim();
+    const pass = (password || parola || sifre || '').toString();
+
+    console.log('[LOGIN] BODY:', { rawIdentity, hasPassword: Boolean(pass) });
+
+    if (!rawIdentity || !pass) {
       return res.status(400).json({ message: 'Kimlik ve şifre zorunlu' });
     }
 
-    // identifier email ise email’e, değilse tc/phone’a bak
-    const isEmail = identifier.includes('@');
-    const query = isEmail
-      ? { email: lc(identifier) }
-      : { $or: [{ tc: identifier }, { phone: identifier }] };
+    let query = {};
+    if (rawIdentity.includes('@')) {
+      query = { email: lc(rawIdentity) };
+    } else if (/^\d{11}$/.test(rawIdentity)) {
+      query = { tc: rawIdentity };
+    } else if (/^\d+$/.test(rawIdentity)) {
+      query = { phone: rawIdentity };
+    } else {
+      query = { $or: [{ email: lc(rawIdentity) }, { phone: rawIdentity }, { tc: rawIdentity }] };
+    }
 
-    // Şema "passwordHash"i select:false olarak saklıyor olabilir; iki alanı da talep et
     const user = await User.findOne(query)
       .select('+passwordHash password active role name email tc phone serviceIds')
       .lean();
@@ -101,7 +119,7 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(401).json({ message: 'Kullanıcı bulunamadı' });
 
     const hashed = user.passwordHash || user.password || '';
-    const ok = await bcrypt.compare(password, hashed);
+    const ok = hashed ? await bcrypt.compare(pass, hashed) : false;
     if (!ok) return res.status(401).json({ message: 'Şifre hatalı' });
 
     if (user.active === false) return res.status(403).json({ message: 'Hesap pasif' });
