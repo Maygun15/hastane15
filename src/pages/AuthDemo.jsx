@@ -1,6 +1,18 @@
 // src/pages/AuthDemo.jsx
 import React, { useMemo, useState } from "react";
-import { apiLogin, apiRegister, setToken } from "../lib/api.js";
+import api, { setToken } from "../lib/api.js";
+
+async function demoRegister(payload) {
+  const res = await api.post("/register", payload);
+  if (res.data?.token) setToken(res.data.token);
+  return res.data;
+}
+
+async function demoLogin(payload) {
+  const res = await api.post("/login", payload);
+  if (res.data?.token) setToken(res.data.token);
+  return res.data;
+}
 
 /** Yardımcı normalizasyonlar */
 const normTC = (v) => String(v || "").replace(/\D+/g, "").slice(0, 11);
@@ -48,7 +60,7 @@ export default function AuthDemo() {
     setMsg("");
     setLoading(true);
     try {
-      const { token } = await apiLogin({ identifier: identNorm, password });
+      const { token } = await demoLogin({ identifier: identNorm, password });
       if (token) setToken(token);
       setMsg("Giriş başarılı, yönlendiriliyor…");
       setTimeout(() => (window.location.href = "/"), 400);
@@ -72,7 +84,7 @@ export default function AuthDemo() {
         email: email.trim().toLowerCase(),
         password: rpass,
       };
-      const { token } = await apiRegister(payload);
+      const { token } = await demoRegister(payload);
       if (token) setToken(token);
       setMsg("Kayıt başarılı, giriş yapıldı.");
       setTimeout(() => (window.location.href = "/"), 600);

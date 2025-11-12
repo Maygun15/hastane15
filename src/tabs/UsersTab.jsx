@@ -8,7 +8,7 @@ import {
   activateByIdentifier as lsActivateByIdentifier,
 } from "../auth/userAuth.js";
 import useServicesModel from "../hooks/useServicesModel.js";
-import { API, getToken } from "../lib/api.js";
+import api, { getToken } from "../lib/api.js";
 
 /* ---------------- küçük yardımcılar ---------------- */
 function Badge({ children, tone = "slate" }) {
@@ -197,7 +197,7 @@ export default function UsersTab() {
 
     // Doğru endpoint: /api/users/:id/activate
     try {
-      await API.http.post(`/api/users/${userId}/activate`);
+      await api.post(`../users/${userId}/activate`);
       // UI LS kaynağıyla senkron
       lsSetUserStatus(u.id, "active");
       refresh();
@@ -334,7 +334,7 @@ export default function UsersTab() {
         onSave={async (ids) => {
           try {
             if (hasBackend) {
-              await API.setUserServices(assignFor.id, ids);
+              await api.post(`../users/${assignFor.id}/services`, { serviceIds: ids });
             } else {
               lsSetUserServices(assignFor.id, ids);
             }
