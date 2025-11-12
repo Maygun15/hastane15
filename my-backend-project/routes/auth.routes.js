@@ -113,13 +113,21 @@ router.post('/login', async (req, res) => {
     }
 
     const user = await User.findOne(query)
-      .select('+passwordHash password active role name email tc phone serviceIds')
-      .lean();
+      .select('+passwordHash password active role name email tc phone serviceIds');
 
     if (!user) return res.status(401).json({ message: 'Kullanıcı bulunamadı' });
 
-    const hashed = user.passwordHash || user.password || '';
-    const ok = hashed ? await bcrypt.compare(pass, hashed) : false;
+        let ok = false;
+    if (user.passwordHash) {
+      ok = await bcrypt.compare(pass, user.passwordHash);
+    } else if (user.password) {
+      ok = user.password === pass;
+      if (ok) {
+        user.passwordHash = await bcrypt.hash(pass, 10);
+        user.password = undefined;
+        await user.save();
+      }
+    }
     if (!ok) return res.status(401).json({ message: 'Şifre hatalı' });
 
     if (user.active === false) return res.status(403).json({ message: 'Hesap pasif' });
