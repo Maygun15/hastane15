@@ -80,75 +80,50 @@ router.post('/register', async (req, res) => {
 /* ============= LOGIN ============= */
 router.post('/login', async (req, res) => {
   try {
+    console.log('LOGIN BODY:', req.body);
     const {
-      identifier,
       kimlik,
       tc,
       identityNumber,
       email,
       phone,
-      password,
       parola,
+      password,
       sifre,
     } = req.body || {};
 
-    const rawIdentity = (tc || kimlik || identityNumber || identifier || email || phone || '').toString().trim();
-    const pass = (password || parola || sifre || '').toString();
+    const id = (tc ?? kimlik ?? identityNumber ?? email ?? phone)?.toString().trim();
+    const pass = (password ?? parola ?? sifre ?? '').toString();
 
-    console.log('[LOGIN] BODY:', { rawIdentity, hasPassword: Boolean(pass) });
-
-    if (!rawIdentity || !pass) {
-      return res.status(400).json({ message: 'Kimlik ve şifre zorunlu' });
+    if (!id || !pass) {
+      return res.status(400).json({ ok: false, msg: 'Eksik bilgi' });
     }
 
     let query = {};
-    if (rawIdentity.includes('@')) {
-      query = { email: lc(rawIdentity) };
-    } else if (/^\d{11}$/.test(rawIdentity)) {
-      query = { tc: rawIdentity };
-    } else if (/^\d+$/.test(rawIdentity)) {
-      query = { phone: rawIdentity };
-    } else {
-      query = { $or: [{ email: lc(rawIdentity) }, { phone: rawIdentity }, { tc: rawIdentity }] };
+    if (email) query = { email: lc(id) };
+    else if (phone) query = { phone: id };
+    else if (/^\d{11}$/.test(id)) query = { tc: id };
+    else query = { username: id };
+
+    const user = await User.findOne(query);
+    if (!user) return res.status(401).json({ ok: false, msg: 'Kullanıcı bulunamadı' });
+
+    if (user.isApproved === false || user.active === false || user.isActive === false) {
+      return res.status(403).json({ ok: false, msg: 'Hesap aktif/onaylı değil' });
     }
 
-    const user = await User.findOne(query)
-      .select('+passwordHash password active role name email tc phone serviceIds');
-
-    if (!user) return res.status(401).json({ message: 'Kullanıcı bulunamadı' });
-
-        let ok = false;
-    if (user.passwordHash) {
-      ok = await bcrypt.compare(pass, user.passwordHash);
-    } else if (user.password) {
-      ok = user.password === pass;
-      if (ok) {
-        user.passwordHash = await bcrypt.hash(pass, 10);
-        user.password = undefined;
-        await user.save();
-      }
-    }
-    if (!ok) return res.status(401).json({ message: 'Şifre hatalı' });
-
-    if (user.active === false) return res.status(403).json({ message: 'Hesap pasif' });
+    const ok = await bcrypt.compare(pass, user.passwordHash || '');
+    if (!ok) return res.status(401).json({ ok: false, msg: 'Şifre hatalı' });
 
     const token = makeToken(String(user._id));
-    return res.json({
+    return res.status(200).json({
+      ok: true,
       token,
-      user: {
-        id: String(user._id),
-        name: user.name,
-        email: user.email,
-        tc: user.tc,
-        phone: user.phone,
-        role: user.role,
-        active: user.active,
-        serviceIds: user.serviceIds || [],
-      },
+      user: { id: user._id, tc: user.tc, role: user.role, name: user.name },
     });
   } catch (err) {
     console.error('LOGIN ERR:', err);
-    res.status(500).json({ message: 'Giriş sırasında hata' });
+    return res.status(500).json({ ok: false, msg: 'Sunucu hatası' });
   }
 });
 
