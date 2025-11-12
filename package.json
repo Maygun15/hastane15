@@ -2,11 +2,11 @@
   "name": "hospital-roster",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://maygun15.github.io/hastane15",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "cp dist/index.html dist/404.html",
     "preview": "vite preview --port 4173",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
